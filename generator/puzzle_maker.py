@@ -3,7 +3,7 @@ import copy
 import joblib
 import os
 import pandas as pd
-from generator.board_generator import is_safe
+from generator.board_generator import is_safe, generate_full_board
 
 MODEL_PATH = "ml/adaptive_difficulty_model.pkl"
 
@@ -55,19 +55,15 @@ def count_solutions(board):
     # Use a deep copy to avoid mutating the original board
     return solve_count(copy.deepcopy(board))
 
-def remove_cells(board, user_metrics):
+def remove_cells_from_board(board, num_cells_to_remove):
     """
-    board: fully-filled 9x9 sudoku grid
-    user_metrics: dict with key - 'time_taken'
-    Ensures the resulting puzzle has a unique solution.
+    Helper to remove up to num_cells_to_remove from a single board, ensuring uniqueness after each removal.
+    Returns the puzzle and the number of cells actually removed.
     """
-    num_cells_to_remove = predict_cells_to_remove(user_metrics)
-
     puzzle = copy.deepcopy(board)
     cells = [(i, j) for i in range(9) for j in range(9)]
     random.shuffle(cells)
     removed = 0
-
     for row, col in cells:
         if removed >= num_cells_to_remove:
             break
@@ -79,8 +75,28 @@ def remove_cells(board, user_metrics):
             removed += 1
         else:
             puzzle[row][col] = backup
+    return puzzle, removed
 
-    return puzzle
+def remove_cells(board, user_metrics):
+    """
+    board: fully-filled 9x9 sudoku grid (ignored, for compatibility)
+    user_metrics: dict with key - 'time_taken'
+    Generates 10 boards, removes cells from each, and returns the puzzle with cells removed closest to the target (ensuring uniqueness).
+    Stops early if a puzzle matches the target exactly.
+    """
+    num_cells_to_remove = predict_cells_to_remove(user_metrics)
+    best_puzzle = None
+    best_removed = -1
+    NUM_BOARDS = 10
+    for _ in range(NUM_BOARDS):
+        full_board = generate_full_board()
+        puzzle, removed = remove_cells_from_board(full_board, num_cells_to_remove)
+        if abs(removed - num_cells_to_remove) < abs(best_removed - num_cells_to_remove) or best_puzzle is None:
+            best_puzzle = puzzle
+            best_removed = removed
+        if removed == num_cells_to_remove:
+            break
+    return best_puzzle
 
 def print_board(board):
     print("\n🧩 Puzzle Board:")
