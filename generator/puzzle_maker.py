@@ -3,16 +3,13 @@ import copy
 import joblib
 import os
 import pandas as pd
+from generator.board_generator import is_safe
 
 MODEL_PATH = "ml/adaptive_difficulty_model.pkl"
 
 # Features expected by the model
 FEATURE_COLUMNS = [
-    "time_taken",
-    "mistakes_made",
-    "hints_used",
-    "cells_filled_by_user",
-    "solved_successfully"
+    "time_taken"
 ]
 
 def load_model():
@@ -35,23 +32,53 @@ def predict_cells_to_remove(metrics: dict):
     # Ensure it's an integer within [20, 60] range
     return int(max(20, min(60, round(prediction))))
 
+def count_solutions(board):
+    """
+    Counts the number of solutions for a given Sudoku board using backtracking.
+    Returns the number of solutions (stops at 2 for efficiency).
+    """
+    def solve_count(bd):
+        for row in range(9):
+            for col in range(9):
+                if bd[row][col] == 0:
+                    count = 0
+                    for num in range(1, 10):
+                        if is_safe(bd, row, col, num):
+                            bd[row][col] = num
+                            count += solve_count(bd)
+                            if count > 1:
+                                bd[row][col] = 0
+                                return count
+                            bd[row][col] = 0
+                    return count
+        return 1
+    # Use a deep copy to avoid mutating the original board
+    return solve_count(copy.deepcopy(board))
+
 def remove_cells(board, user_metrics):
     """
     board: fully-filled 9x9 sudoku grid
-    user_metrics: dict with keys - 'time_taken', 'mistakes_made', 'hints_used', 'cells_filled_by_user', 'solved_successfully'
+    user_metrics: dict with key - 'time_taken'
+    Ensures the resulting puzzle has a unique solution.
     """
     num_cells_to_remove = predict_cells_to_remove(user_metrics)
 
     puzzle = copy.deepcopy(board)
+    cells = [(i, j) for i in range(9) for j in range(9)]
+    random.shuffle(cells)
     removed = 0
 
-    while removed < num_cells_to_remove:
-        row = random.randint(0, 8)
-        col = random.randint(0, 8)
-
-        if puzzle[row][col] != 0:
-            puzzle[row][col] = 0
+    for row, col in cells:
+        if removed >= num_cells_to_remove:
+            break
+        if puzzle[row][col] == 0:
+            continue
+        backup = puzzle[row][col]
+        puzzle[row][col] = 0
+        if count_solutions(puzzle) == 1:
             removed += 1
+        else:
+            puzzle[row][col] = backup
 
     return puzzle
 
