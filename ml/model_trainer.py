@@ -27,7 +27,7 @@ def train_model():
         raise ValueError("Column 'cells_to_remove' is required for regression training.")
 
     # Features and target
-    X = df[['time_taken', 'mistakes_made', 'hints_used', 'cells_filled_by_user', 'solved_successfully']]
+    X = df[['time_taken']]
     y = df['cells_to_remove']
 
     # Split for evaluation
