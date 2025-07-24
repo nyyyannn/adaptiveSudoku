@@ -7,11 +7,7 @@ MODEL_PATH = "ml/adaptive_difficulty_model.pkl"
 
 # Explicit feature order — crucial for consistent prediction
 FEATURE_COLUMNS = [
-    "time_taken",
-    "mistakes_made",
-    "hints_used",
-    "cells_filled_by_user",
-    "solved_successfully"
+    "time_taken_in_seconds"
 ]
 
 def predict_cells_to_remove(metrics: dict):
